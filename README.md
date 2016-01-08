@@ -6,17 +6,16 @@ This beat ships all performance counters in HotSpot VM.
 ## How to Build
 
 ```shell
-$ go get github.com/elastic/libbeat
-$ cd src
-$ go build hsbeatmain.go
+$ go build
 ```
 
 ## How to use
 
-You should run ```hsbeatmain``` with same user of target VM.
+You should run ```hsbeat``` with same user of target VM.
 
 ```shell
-$ ./hsbeatmain <PID> <Interval (in ms)>
+$ go get github.com/YaSuenag/hsbeat
+$ hsbeat <PID> <Interval (in ms)>
 ```
 
 You can import Kibana dashboard (etc/kibana.json)
