@@ -26,7 +26,7 @@ import (
 
   "github.com/elastic/libbeat/beat"
 
-  hsbeat "./hsbeat"
+  hsbeat "github.com/YaSuenag/hsbeat/hsbeat"
 )
 
 

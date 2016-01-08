@@ -25,7 +25,7 @@ import(
   "github.com/elastic/libbeat/beat"
   "github.com/elastic/libbeat/common"
 
-  "../hsperfdata"
+  "github.com/YaSuenag/hsbeat/hsperfdata"
 )
 
 

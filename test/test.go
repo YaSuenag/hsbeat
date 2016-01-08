@@ -23,7 +23,7 @@ import(
   "os"
   "log"
 
-  "../src/hsperfdata"
+  "github.com/YaSuenag/hsbeat/hsperfdata"
 )
 
 
