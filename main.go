@@ -27,6 +27,8 @@ import (
   "github.com/elastic/libbeat/beat"
 
   hsbeat "github.com/YaSuenag/hsbeat/hsbeat"
+
+  //"runtime/pprof"
 )
 
 
@@ -35,6 +37,15 @@ func main() {
   if err != nil {
     log.Fatal(err)
   }
+
+/*
+  prof, err := os.Create("hsbeat.prof")
+  if err != nil {
+    log.Fatal(err)
+  }
+  pprof.StartCPUProfile(prof)
+  defer pprof.StopCPUProfile()
+*/
 
   hb :=&hsbeat.HSBeat{os.Args[1], time.Duration(interval), "", false}
   b := beat.NewBeat("hsbeat", "0.1.0", hb)

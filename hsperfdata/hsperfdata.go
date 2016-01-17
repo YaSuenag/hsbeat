@@ -104,12 +104,12 @@ func ReadPrologue(f *os.File) (PerfDataPrologue, error) {
   return result, nil
 }
 
-func ReadEntryName(f *os.File, StartOfs int64, entry *PerfDataEntry) error {
-  f.Seek(StartOfs + int64(entry.NameOffset), os.SEEK_SET)
+func ReadEntryName(reader *bytes.Reader, StartOfs int64, entry *PerfDataEntry) error {
+  reader.Seek(StartOfs + int64(entry.NameOffset), os.SEEK_SET)
 
   NameLen := entry.DataOffset - entry.NameOffset
   var buf []byte = make([]byte, NameLen)
-  n, err := f.Read(buf)
+  n, err := reader.Read(buf)
   if err != nil {
     return err
   } else if n != int(NameLen) {
@@ -122,12 +122,12 @@ func ReadEntryName(f *os.File, StartOfs int64, entry *PerfDataEntry) error {
   return nil
 }
 
-func ReadEntryValueAsString(f *os.File, StartOfs int64, entry *PerfDataEntry) error {
-  f.Seek(StartOfs + int64(entry.DataOffset), os.SEEK_SET)
+func ReadEntryValueAsString(reader *bytes.Reader, StartOfs int64, entry *PerfDataEntry) error {
+  reader.Seek(StartOfs + int64(entry.DataOffset), os.SEEK_SET)
 
   DataLen := entry.EntryLength - entry.DataOffset
   var buf []byte = make([]byte, DataLen)
-  n, err := f.Read(buf)
+  n, err := reader.Read(buf)
   if err != nil {
     return err
   } else if n != int(DataLen) {
@@ -140,18 +140,8 @@ func ReadEntryValueAsString(f *os.File, StartOfs int64, entry *PerfDataEntry) er
   return nil
 }
 
-func ReadEntryValueAsLong(f *os.File, StartOfs int64, prologue PerfDataPrologue, entry *PerfDataEntry) error {
-  f.Seek(StartOfs + int64(entry.DataOffset), os.SEEK_SET)
-
-  var buf []byte = make([]byte, 8)
-  n, err := f.Read(buf)
-  if err != nil {
-    return err
-  } else if n != 8 {
-    return errors.New("Could not read entry value.")
-  }
-
-  reader := bytes.NewReader(buf)
+func ReadEntryValueAsLong(reader *bytes.Reader, StartOfs int64, prologue PerfDataPrologue, entry *PerfDataEntry) error {
+  reader.Seek(StartOfs + int64(entry.DataOffset), os.SEEK_SET)
 
   var order binary.ByteOrder
   if prologue.ByteOrder == 0 {
@@ -166,7 +156,14 @@ func ReadEntryValueAsLong(f *os.File, StartOfs int64, prologue PerfDataPrologue,
 }
 
 func ReadPerfEntry(f *os.File, prologue PerfDataPrologue) ([]PerfDataEntry, error){
-  var buf []byte = make([]byte, 20)
+  fileinfo, err := f.Stat()
+  if err != nil {
+      return nil, err
+  }
+
+  var buf []byte = make([]byte, fileinfo.Size() - 32)
+  f.Read(buf)
+
   var result []PerfDataEntry = make([]PerfDataEntry, prologue.NumEntries)
 
   var order binary.ByteOrder
@@ -176,21 +173,13 @@ func ReadPerfEntry(f *os.File, prologue PerfDataPrologue) ([]PerfDataEntry, erro
     order = binary.LittleEndian
   }
 
+  reader := bytes.NewReader(buf)
   var i int32
   for i = 0; i < prologue.NumEntries; i++ {
-    StartOfs, err := f.Seek(0, os.SEEK_CUR)
+    StartOfs, err := reader.Seek(0, os.SEEK_CUR)
     if err != nil {
       return nil, err
     }
-
-    n, err := f.Read(buf)
-    if err != nil {
-      return nil, err
-    } else if n != 20 {
-      return nil, errors.New("Could not read PerfDataEntry.")
-    }
-
-    reader := bytes.NewReader(buf)
 
     binary.Read(reader, order, &result[i].EntryLength)
     binary.Read(reader, order, &result[i].NameOffset)
@@ -201,20 +190,20 @@ func ReadPerfEntry(f *os.File, prologue PerfDataPrologue) ([]PerfDataEntry, erro
     binary.Read(reader, order, &result[i].DataVariability)
     binary.Read(reader, order, &result[i].DataOffset)
 
-    err = ReadEntryName(f, StartOfs, &result[i])
+    err = ReadEntryName(reader, StartOfs, &result[i])
     if err != nil {
       return nil, err
     }
 
     if result[i].DataType == 'B' {
-      err := ReadEntryValueAsString(f, StartOfs, &result[i])
+      err := ReadEntryValueAsString(reader, StartOfs, &result[i])
 
       if err != nil {
         return nil, err
       }
 
     } else if result[i].DataType == 'J' {
-      err := ReadEntryValueAsLong(f, StartOfs, prologue, &result[i])
+      err := ReadEntryValueAsLong(reader, StartOfs, prologue, &result[i])
 
       if err != nil {
         return nil, err
@@ -222,7 +211,7 @@ func ReadPerfEntry(f *os.File, prologue PerfDataPrologue) ([]PerfDataEntry, erro
 
     }
 
-    f.Seek(StartOfs + int64(result[i].EntryLength), os.SEEK_SET)
+    reader.Seek(StartOfs + int64(result[i].EntryLength), os.SEEK_SET)
   }
 
   return result, nil
