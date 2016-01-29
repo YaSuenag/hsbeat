@@ -15,6 +15,7 @@ You should run ```hsbeat``` with same user of target VM.
 
 ```shell
 $ go get github.com/YaSuenag/hsbeat
+$ curl -XPUT http://<host>:9200/_template/hsbeat -d@etc/hsbeat-template.json
 $ hsbeat <PID> <Interval (in ms)>
 ```
 
