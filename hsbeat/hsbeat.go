@@ -55,6 +55,8 @@ func (this *HSBeat) getAndPublish(b *beat.Beat) error {
   }
   defer f.Close()
 
+  timestamp :=  common.Time(time.Now())
+
   prologue, err := hsperfdata.ReadPrologue(f)
   if err != nil {
     return err
@@ -67,18 +69,19 @@ func (this *HSBeat) getAndPublish(b *beat.Beat) error {
     return err
   }
 
-  var i int32
-  timestamp :=  common.Time(time.Now())
-
-  for i = 0; i < prologue.NumEntries; i++ {
+  for _, entry := range entries {
     event := common.MapStr{"@timestamp": timestamp,
                            "type": "hsbeat",
                            "pid": this.Pid}
 
-    event["name"] = entries[i].EntryName
-    event["data_type"] = entries[i].DataType
-    event["val_string"] = entries[i].StringValue
-    event["val_long"] = entries[i].LongValue
+    event["name"] = entry.EntryName
+    event["data_type"] = entry.DataType
+
+    if entry.DataType == 'J' {
+      event["long_val"] = entry.LongValue
+    } else {
+      event["str_val"] = entry.StringValue
+    }
 
     b.Events.PublishEvent(event)
   }
