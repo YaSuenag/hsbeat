@@ -34,6 +34,7 @@ type HSBeat struct {
   Interval time.Duration
   HSPerfDataPath string
   ShouldTerminate bool
+  PreviousData map[string]int64
 }
 
 
@@ -44,6 +45,7 @@ func (this *HSBeat) Config(b *beat.Beat) error {
 func (this *HSBeat) Setup(b *beat.Beat) error {
   var err error
 
+  this.PreviousData = make(map[string]int64)
   this.HSPerfDataPath, err = hsperfdata.GetHSPerfDataPath(this.Pid)
   return err
 }
@@ -79,6 +81,13 @@ func (this *HSBeat) getAndPublish(b *beat.Beat) error {
 
     if entry.DataType == 'J' {
       event["long_val"] = entry.LongValue
+      prev, exists := this.PreviousData[entry.EntryName]
+
+      if exists {
+        event["diff"] = entry.LongValue - prev
+      }
+
+      this.PreviousData[entry.EntryName] = entry.LongValue
     } else {
       event["str_val"] = entry.StringValue
     }

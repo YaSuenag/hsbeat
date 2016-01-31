@@ -33,6 +33,9 @@
         "long_val": {
           "type": "long"
         },
+        "diff": {
+          "type": "long"
+        },
         "str_val": {
           "type": "string",
           "index": "not_analyzed"
