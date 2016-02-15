@@ -36,6 +36,7 @@ type HSBeat struct {
   HSPerfDataPath string
   ShouldTerminate bool
   PreviousData map[string]int64
+  Called bool
 }
 
 
@@ -48,6 +49,7 @@ func (this *HSBeat) Setup(b *beat.Beat) error {
 
   this.PreviousData = make(map[string]int64)
   this.HSPerfDataPath, err = hsperfdata.GetHSPerfDataPath(this.Pid)
+  this.Called = false
   return err
 }
 
@@ -77,6 +79,11 @@ func (this *HSBeat) getAndPublish(b *beat.Beat) error {
                          "pid": this.Pid}
 
   for _, entry := range entries {
+
+    if this.Called && entry.DataVariability == 1 {
+      continue
+    }
+
     entryName := strings.Replace(entry.EntryName, ".", "/", -1)
 
     if entry.DataType == 'J' {
@@ -95,6 +102,7 @@ func (this *HSBeat) getAndPublish(b *beat.Beat) error {
   }
 
   b.Events.PublishEvent(event)
+  this.Called = true
 
   return nil
 }

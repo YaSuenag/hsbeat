@@ -56,6 +56,7 @@ type PerfDataEntry struct{
 }
 
 var globalbuf []byte
+var called bool = false
 
 
 func GetHSPerfDataPath(pid string) (string, error) {
@@ -214,30 +215,33 @@ func ReadPerfEntry(f *os.File, prologue PerfDataPrologue) ([]PerfDataEntry, erro
     reader.Read(globalbuf[:4])
     result[i].DataOffset = int32(order.Uint32(globalbuf[:4]))
 
-    err = readEntryName(reader, StartOfs, &result[i])
-    if err != nil {
-      return nil, err
-    }
-
-    if result[i].DataType == 'B' {
-      err := readEntryValueAsString(reader, StartOfs, &result[i])
-
+    if !called || result[i].DataVariability != 1 { // 1st call or NOT constants
+      err = readEntryName(reader, StartOfs, &result[i])
       if err != nil {
         return nil, err
       }
 
-    } else if result[i].DataType == 'J' {
-      err := readEntryValueAsLong(reader, StartOfs, prologue, &result[i])
+      if result[i].DataType == 'B' {
+        err := readEntryValueAsString(reader, StartOfs, &result[i])
 
-      if err != nil {
-        return nil, err
+        if err != nil {
+          return nil, err
+        }
+
+      } else if result[i].DataType == 'J' {
+        err := readEntryValueAsLong(reader, StartOfs, prologue, &result[i])
+
+        if err != nil {
+          return nil, err
+        }
+
       }
-
     }
 
     reader.Seek(StartOfs + int64(result[i].EntryLength), os.SEEK_SET)
   }
 
+  called = true
   return result, nil
 }
 
