@@ -21,6 +21,7 @@ package hsbeat
 import(
   "os"
   "time"
+  "strings"
 
   "github.com/elastic/libbeat/beat"
   "github.com/elastic/libbeat/common"
@@ -71,30 +72,29 @@ func (this *HSBeat) getAndPublish(b *beat.Beat) error {
     return err
   }
 
-  for _, entry := range entries {
-    event := common.MapStr{"@timestamp": timestamp,
-                           "type": "hsbeat",
-                           "pid": this.Pid}
+  event := common.MapStr{"@timestamp": timestamp,
+                         "type": "hsbeat",
+                         "pid": this.Pid}
 
-    event["name"] = entry.EntryName
-    event["data_type"] = entry.DataType
+  for _, entry := range entries {
+    entryName := strings.Replace(entry.EntryName, ".", "/", -1)
 
     if entry.DataType == 'J' {
-      event["long_val"] = entry.LongValue
-      prev, exists := this.PreviousData[entry.EntryName]
+      event[entryName] = entry.LongValue
+      prev, exists := this.PreviousData[entryName]
 
       if exists {
-        event["diff"] = entry.LongValue - prev
+        event[entryName + ",diff"] = entry.LongValue - prev
       }
 
-      this.PreviousData[entry.EntryName] = entry.LongValue
+      this.PreviousData[entryName] = entry.LongValue
     } else {
-      event["str_val"] = entry.StringValue
+      event[entryName] = entry.StringValue
     }
 
-    b.Events.PublishEvent(event)
   }
 
+  b.Events.PublishEvent(event)
 
   return nil
 }

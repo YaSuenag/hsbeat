@@ -20,25 +20,12 @@
         "@timestamp": {
           "type": "date"
         },
+        "type": {
+          "type": "string",
+          "index": "not_analyzed"
+        },
         "pid": {
           "type": "integer"
-        },
-        "name": {
-          "type": "string",
-          "index": "not_analyzed"
-        },
-        "data_type": {
-          "type": "byte"
-        },
-        "long_val": {
-          "type": "long"
-        },
-        "diff": {
-          "type": "long"
-        },
-        "str_val": {
-          "type": "string",
-          "index": "not_analyzed"
         }
       }
     }
