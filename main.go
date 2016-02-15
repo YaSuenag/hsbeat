@@ -47,7 +47,8 @@ func main() {
   defer pprof.StopCPUProfile()
 */
 
-  hb :=&hsbeat.HSBeat{os.Args[1], time.Duration(interval), "", false, nil, false}
+  hb :=&hsbeat.HSBeat{os.Args[1], time.Duration(interval), "", false,
+                                                             nil, false, nil}
   b := beat.NewBeat("hsbeat", "0.1.0", hb)
   b.CommandLineSetup()
   b.LoadConfig()

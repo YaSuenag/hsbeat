@@ -37,6 +37,7 @@ type HSBeat struct {
   ShouldTerminate bool
   PreviousData map[string]int64
   Called bool
+  PerfData *hsperfdata.HSPerfData
 }
 
 
@@ -50,6 +51,7 @@ func (this *HSBeat) Setup(b *beat.Beat) error {
   this.PreviousData = make(map[string]int64)
   this.HSPerfDataPath, err = hsperfdata.GetHSPerfDataPath(this.Pid)
   this.Called = false
+  this.PerfData = &hsperfdata.HSPerfData{}
   return err
 }
 
@@ -62,14 +64,14 @@ func (this *HSBeat) getAndPublish(b *beat.Beat) error {
 
   timestamp :=  common.Time(time.Now())
 
-  prologue, err := hsperfdata.ReadPrologue(f)
+  err = this.PerfData.ReadPrologue(f)
   if err != nil {
     return err
   }
 
-  f.Seek(int64(prologue.EntryOffset), os.SEEK_SET)
+  f.Seek(int64(this.PerfData.Prologue.EntryOffset), os.SEEK_SET)
 
-  entries, err := hsperfdata.ReadPerfEntry(f, prologue)
+  entries, err := this.PerfData.ReadPerfEntry(f)
   if err != nil {
     return err
   }

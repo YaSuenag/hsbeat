@@ -55,8 +55,11 @@ type PerfDataEntry struct{
   LongValue int64
 }
 
-var globalbuf []byte
-var called bool = false
+type HSPerfData struct {
+  globalbuf []byte
+  called bool
+  Prologue PerfDataPrologue
+}
 
 
 func GetHSPerfDataPath(pid string) (string, error) {
@@ -68,113 +71,112 @@ func GetHSPerfDataPath(pid string) (string, error) {
   return filepath.Join(os.TempDir(), "hsperfdata_" + user.Username, pid), nil
 }
 
-func ReadPrologue(f *os.File) (PerfDataPrologue, error) {
-  var result PerfDataPrologue
+func (this *HSPerfData) ReadPrologue(f *os.File) error {
   fileinfo, err := f.Stat()
   if err != nil {
-      return result, err
+      return err
   }
 
-  globalbuf = make([]byte, fileinfo.Size())
+  this.globalbuf = make([]byte, fileinfo.Size())
   buf := make([]byte, 32)
 
   n, err := f.Read(buf)
   if err != nil {
-    return result, err
+    return err
   } else if n != 32 {
-    return result, errors.New("Could not read all prologue data.")
+    return errors.New("Could not read all prologue data.")
   }
 
   reader := bytes.NewReader(buf)
 
-  reader.Read(globalbuf[:4])
-  result.Magic = binary.BigEndian.Uint32(globalbuf[:4])
-  if result.Magic != 0xcafec0c0 {
-    return result, errors.New("Invalid hsperfdata")
+  reader.Read(this.globalbuf[:4])
+  this.Prologue.Magic = binary.BigEndian.Uint32(this.globalbuf[:4])
+  if this.Prologue.Magic != 0xcafec0c0 {
+    return errors.New("Invalid hsperfdata")
   }
 
-  reader.Read(globalbuf[:4])
-  result.ByteOrder = int8(globalbuf[0])
+  reader.Read(this.globalbuf[:4])
+  this.Prologue.ByteOrder = int8(this.globalbuf[0])
   var order binary.ByteOrder
-  if result.ByteOrder == 0 {
+  if this.Prologue.ByteOrder == 0 {
     order = binary.BigEndian
   } else {
     order = binary.LittleEndian
   }
 
-  result.MajorVersion = int8(globalbuf[1])
-  result.MinorVersion = int8(globalbuf[2])
-  result.Accessible = int8(globalbuf[3])
+  this.Prologue.MajorVersion = int8(this.globalbuf[1])
+  this.Prologue.MinorVersion = int8(this.globalbuf[2])
+  this.Prologue.Accessible = int8(this.globalbuf[3])
 
-  reader.Read(globalbuf[:4])
-  result.Used = int32(order.Uint32(globalbuf[:4]))
+  reader.Read(this.globalbuf[:4])
+  this.Prologue.Used = int32(order.Uint32(this.globalbuf[:4]))
 
-  reader.Read(globalbuf[:4])
-  result.Overflow = int32(order.Uint32(globalbuf[:4]))
+  reader.Read(this.globalbuf[:4])
+  this.Prologue.Overflow = int32(order.Uint32(this.globalbuf[:4]))
 
-  reader.Read(globalbuf[:8])
-  result.ModTimeStamp = int64(order.Uint32(globalbuf[:8]))
+  reader.Read(this.globalbuf[:8])
+  this.Prologue.ModTimeStamp = int64(order.Uint32(this.globalbuf[:8]))
 
-  reader.Read(globalbuf[:4])
-  result.EntryOffset = int32(order.Uint32(globalbuf[:4]))
+  reader.Read(this.globalbuf[:4])
+  this.Prologue.EntryOffset = int32(order.Uint32(this.globalbuf[:4]))
 
-  reader.Read(globalbuf[:4])
-  result.NumEntries = int32(order.Uint32(globalbuf[:4]))
+  reader.Read(this.globalbuf[:4])
+  this.Prologue.NumEntries = int32(order.Uint32(this.globalbuf[:4]))
 
-  return result, nil
+  return nil
 }
 
-func readEntryName(reader *bytes.Reader, StartOfs int64, entry *PerfDataEntry) error {
+func (this *HSPerfData) readEntryName(reader *bytes.Reader, StartOfs int64, entry *PerfDataEntry) error {
   reader.Seek(StartOfs + int64(entry.NameOffset), os.SEEK_SET)
 
   NameLen := entry.DataOffset - entry.NameOffset
-  n, err := reader.Read(globalbuf[:NameLen])
+  n, err := reader.Read(this.globalbuf[:NameLen])
   if err != nil {
     return err
   } else if n != int(NameLen) {
     return errors.New("Could not read entry name.")
   }
 
-  n = bytes.Index(globalbuf[:NameLen], []byte{0})
-  entry.EntryName = string(globalbuf[:n])
+  n = bytes.Index(this.globalbuf[:NameLen], []byte{0})
+  entry.EntryName = string(this.globalbuf[:n])
 
   return nil
 }
 
-func readEntryValueAsString(reader *bytes.Reader, StartOfs int64, entry *PerfDataEntry) error {
+func (this *HSPerfData) readEntryValueAsString(reader *bytes.Reader, StartOfs int64, entry *PerfDataEntry) error {
   reader.Seek(StartOfs + int64(entry.DataOffset), os.SEEK_SET)
 
   DataLen := entry.EntryLength - entry.DataOffset
-  n, err := reader.Read(globalbuf[:DataLen])
+  n, err := reader.Read(this.globalbuf[:DataLen])
   if err != nil {
     return err
   } else if n != int(DataLen) {
     return errors.New("Could not read entry value.")
   }
 
-  n = bytes.Index(globalbuf[:DataLen], []byte{0})
-  entry.StringValue = string(globalbuf[:n])
+  n = bytes.Index(this.globalbuf[:DataLen], []byte{0})
+  entry.StringValue = string(this.globalbuf[:n])
 
   return nil
 }
 
-func readEntryValueAsLong(reader *bytes.Reader, StartOfs int64, prologue PerfDataPrologue, entry *PerfDataEntry) error {
+func (this *HSPerfData) readEntryValueAsLong(reader *bytes.Reader, StartOfs int64, entry *PerfDataEntry) error {
   reader.Seek(StartOfs + int64(entry.DataOffset), os.SEEK_SET)
 
   var order binary.ByteOrder
-  if prologue.ByteOrder == 0 {
+  if this.Prologue.ByteOrder == 0 {
     order = binary.BigEndian
   } else {
     order = binary.LittleEndian
   }
 
-  reader.Read(globalbuf[:8])
-  entry.LongValue = int64(order.Uint64(globalbuf[:8]))
+  reader.Read(this.globalbuf[:8])
+  entry.LongValue = int64(order.Uint64(this.globalbuf[:8]))
 
   return nil
 }
 
-func ReadPerfEntry(f *os.File, prologue PerfDataPrologue) ([]PerfDataEntry, error){
+func (this *HSPerfData) ReadPerfEntry(f *os.File) ([]PerfDataEntry, error){
   fileinfo, err := f.Stat()
   if err != nil {
       return nil, err
@@ -183,53 +185,53 @@ func ReadPerfEntry(f *os.File, prologue PerfDataPrologue) ([]PerfDataEntry, erro
   var buf []byte = make([]byte, fileinfo.Size() - 32)
   f.Read(buf)
 
-  var result []PerfDataEntry = make([]PerfDataEntry, prologue.NumEntries)
+  var result []PerfDataEntry = make([]PerfDataEntry, this.Prologue.NumEntries)
 
   var order binary.ByteOrder
-  if prologue.ByteOrder == 0 {
+  if this.Prologue.ByteOrder == 0 {
     order = binary.BigEndian
   } else {
     order = binary.LittleEndian
   }
 
   reader := bytes.NewReader(buf)
-  for i := 0; i < int(prologue.NumEntries); i++ {
+  for i := 0; i < int(this.Prologue.NumEntries); i++ {
     StartOfs, err := reader.Seek(0, os.SEEK_CUR)
     if err != nil {
       return nil, err
     }
 
-    reader.Read(globalbuf[:4])
-    result[i].EntryLength = int32(order.Uint32(globalbuf[:4]))
-    reader.Read(globalbuf[:4])
-    result[i].NameOffset = int32(order.Uint32(globalbuf[:4]))
-    reader.Read(globalbuf[:4])
-    result[i].VectorLength = int32(order.Uint32(globalbuf[:4]))
+    reader.Read(this.globalbuf[:4])
+    result[i].EntryLength = int32(order.Uint32(this.globalbuf[:4]))
+    reader.Read(this.globalbuf[:4])
+    result[i].NameOffset = int32(order.Uint32(this.globalbuf[:4]))
+    reader.Read(this.globalbuf[:4])
+    result[i].VectorLength = int32(order.Uint32(this.globalbuf[:4]))
 
-    reader.Read(globalbuf[:4])
-    result[i].DataType = int8(globalbuf[0])
-    result[i].Flags = int8(globalbuf[1])
-    result[i].DataUnits = int8(globalbuf[2])
-    result[i].DataVariability = int8(globalbuf[3])
+    reader.Read(this.globalbuf[:4])
+    result[i].DataType = int8(this.globalbuf[0])
+    result[i].Flags = int8(this.globalbuf[1])
+    result[i].DataUnits = int8(this.globalbuf[2])
+    result[i].DataVariability = int8(this.globalbuf[3])
 
-    reader.Read(globalbuf[:4])
-    result[i].DataOffset = int32(order.Uint32(globalbuf[:4]))
+    reader.Read(this.globalbuf[:4])
+    result[i].DataOffset = int32(order.Uint32(this.globalbuf[:4]))
 
-    if !called || result[i].DataVariability != 1 { // 1st call or NOT constants
-      err = readEntryName(reader, StartOfs, &result[i])
+    if !this.called || result[i].DataVariability != 1 { // 1st call or NOT constants
+      err = this.readEntryName(reader, StartOfs, &result[i])
       if err != nil {
         return nil, err
       }
 
       if result[i].DataType == 'B' {
-        err := readEntryValueAsString(reader, StartOfs, &result[i])
+        err := this.readEntryValueAsString(reader, StartOfs, &result[i])
 
         if err != nil {
           return nil, err
         }
 
       } else if result[i].DataType == 'J' {
-        err := readEntryValueAsLong(reader, StartOfs, prologue, &result[i])
+        err := this.readEntryValueAsLong(reader, StartOfs, &result[i])
 
         if err != nil {
           return nil, err
@@ -241,7 +243,7 @@ func ReadPerfEntry(f *os.File, prologue PerfDataPrologue) ([]PerfDataEntry, erro
     reader.Seek(StartOfs + int64(result[i].EntryLength), os.SEEK_SET)
   }
 
-  called = true
+  this.called = true
   return result, nil
 }
 
