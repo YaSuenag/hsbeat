@@ -21,7 +21,6 @@ package hsbeat
 import(
   "os"
   "time"
-  "strings"
 
   "github.com/elastic/libbeat/beat"
   "github.com/elastic/libbeat/common"
@@ -36,7 +35,6 @@ type HSBeat struct {
   HSPerfDataPath string
   ShouldTerminate bool
   PreviousData map[string]int64
-  Called bool
   PerfData *hsperfdata.HSPerfData
 }
 
@@ -50,19 +48,42 @@ func (this *HSBeat) Setup(b *beat.Beat) error {
 
   this.PreviousData = make(map[string]int64)
   this.HSPerfDataPath, err = hsperfdata.GetHSPerfDataPath(this.Pid)
-  this.Called = false
   this.PerfData = &hsperfdata.HSPerfData{}
   return err
 }
 
-func (this *HSBeat) getAndPublish(b *beat.Beat) error {
+func (this *HSBeat) publish(b *beat.Beat, entries []hsperfdata.PerfDataEntry) error {
+  timestamp :=  common.Time(time.Now())
+  event := common.MapStr{"@timestamp": timestamp,
+                         "type": "hsbeat",
+                         "pid": this.Pid}
+
+  for _, entry := range entries {
+    if entry.DataType == 'J' {
+      event[entry.EntryName] = entry.LongValue
+      prev, exists := this.PreviousData[entry.EntryName]
+
+      if exists {
+        event[entry.EntryName + ",diff"] = entry.LongValue - prev
+      }
+
+      this.PreviousData[entry.EntryName] = entry.LongValue
+    } else {
+      event[entry.EntryName] = entry.StringValue
+    }
+  }
+
+  b.Events.PublishEvent(event)
+
+  return nil
+}
+
+func (this *HSBeat) publishAll(b *beat.Beat) error {
   f, err := os.Open(this.HSPerfDataPath)
   if err != nil {
     return err
   }
   defer f.Close()
-
-  timestamp :=  common.Time(time.Now())
 
   err = this.PerfData.ReadPrologue(f)
   if err != nil {
@@ -70,54 +91,54 @@ func (this *HSBeat) getAndPublish(b *beat.Beat) error {
   }
 
   f.Seek(int64(this.PerfData.Prologue.EntryOffset), os.SEEK_SET)
-
-  entries, err := this.PerfData.ReadPerfEntry(f)
+  result, err := this.PerfData.ReadAllEntry(f)
   if err != nil {
     return err
   }
 
-  event := common.MapStr{"@timestamp": timestamp,
-                         "type": "hsbeat",
-                         "pid": this.Pid}
-
-  for _, entry := range entries {
-
-    if this.Called && entry.DataVariability == 1 {
-      continue
-    }
-
-    entryName := strings.Replace(entry.EntryName, ".", "/", -1)
-
-    if entry.DataType == 'J' {
-      event[entryName] = entry.LongValue
-      prev, exists := this.PreviousData[entryName]
-
-      if exists {
-        event[entryName + ",diff"] = entry.LongValue - prev
-      }
-
-      this.PreviousData[entryName] = entry.LongValue
-    } else {
-      event[entryName] = entry.StringValue
-    }
-
+  err = this.publish(b, result)
+  if err != nil {
+    return err
   }
 
-  b.Events.PublishEvent(event)
-  this.Called = true
+  return nil
+}
+
+func (this *HSBeat) publishCached(b *beat.Beat) error {
+  f, err := os.Open(this.HSPerfDataPath)
+  if err != nil {
+    return err
+  }
+  defer f.Close()
+
+  f.Seek(int64(this.PerfData.Prologue.EntryOffset), os.SEEK_SET)
+  result, err := this.PerfData.ReadCachedEntry(f)
+  if err != nil {
+    return err
+  }
+
+  err = this.publish(b, result)
+  if err != nil {
+    return err
+  }
 
   return nil
 }
 
 func (this *HSBeat) Run(b *beat.Beat) error {
+  err := this.publishAll(b)
+  if err != nil {
+    return err
+  }
 
   for !this.ShouldTerminate {
-    err := this.getAndPublish(b)
+    time.Sleep(this.Interval)
+
+    err := this.publishCached(b)
     if err != nil {
       return err
     }
 
-    time.Sleep(this.Interval)
   }
 
   return nil

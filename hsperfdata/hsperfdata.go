@@ -57,8 +57,9 @@ type PerfDataEntry struct{
 
 type HSPerfData struct {
   globalbuf []byte
-  called bool
   Prologue PerfDataPrologue
+  byteOrder binary.ByteOrder
+  entryCache []PerfDataEntry
 }
 
 
@@ -97,11 +98,10 @@ func (this *HSPerfData) ReadPrologue(f *os.File) error {
 
   reader.Read(this.globalbuf[:4])
   this.Prologue.ByteOrder = int8(this.globalbuf[0])
-  var order binary.ByteOrder
   if this.Prologue.ByteOrder == 0 {
-    order = binary.BigEndian
+    this.byteOrder = binary.BigEndian
   } else {
-    order = binary.LittleEndian
+    this.byteOrder = binary.LittleEndian
   }
 
   this.Prologue.MajorVersion = int8(this.globalbuf[1])
@@ -109,19 +109,19 @@ func (this *HSPerfData) ReadPrologue(f *os.File) error {
   this.Prologue.Accessible = int8(this.globalbuf[3])
 
   reader.Read(this.globalbuf[:4])
-  this.Prologue.Used = int32(order.Uint32(this.globalbuf[:4]))
+  this.Prologue.Used = int32(this.byteOrder.Uint32(this.globalbuf[:4]))
 
   reader.Read(this.globalbuf[:4])
-  this.Prologue.Overflow = int32(order.Uint32(this.globalbuf[:4]))
+  this.Prologue.Overflow = int32(this.byteOrder.Uint32(this.globalbuf[:4]))
 
   reader.Read(this.globalbuf[:8])
-  this.Prologue.ModTimeStamp = int64(order.Uint32(this.globalbuf[:8]))
+  this.Prologue.ModTimeStamp = int64(this.byteOrder.Uint32(this.globalbuf[:8]))
 
   reader.Read(this.globalbuf[:4])
-  this.Prologue.EntryOffset = int32(order.Uint32(this.globalbuf[:4]))
+  this.Prologue.EntryOffset = int32(this.byteOrder.Uint32(this.globalbuf[:4]))
 
   reader.Read(this.globalbuf[:4])
-  this.Prologue.NumEntries = int32(order.Uint32(this.globalbuf[:4]))
+  this.Prologue.NumEntries = int32(this.byteOrder.Uint32(this.globalbuf[:4]))
 
   return nil
 }
@@ -138,6 +138,11 @@ func (this *HSPerfData) readEntryName(reader *bytes.Reader, StartOfs int64, entr
   }
 
   n = bytes.Index(this.globalbuf[:NameLen], []byte{0})
+  for i := 0; i < n; i++ {  // Convert '.' to '/'
+    if this.globalbuf[i] == '.' {
+      this.globalbuf[i] = '/'
+    }
+  }
   entry.EntryName = string(this.globalbuf[:n])
 
   return nil
@@ -162,21 +167,13 @@ func (this *HSPerfData) readEntryValueAsString(reader *bytes.Reader, StartOfs in
 
 func (this *HSPerfData) readEntryValueAsLong(reader *bytes.Reader, StartOfs int64, entry *PerfDataEntry) error {
   reader.Seek(StartOfs + int64(entry.DataOffset), os.SEEK_SET)
-
-  var order binary.ByteOrder
-  if this.Prologue.ByteOrder == 0 {
-    order = binary.BigEndian
-  } else {
-    order = binary.LittleEndian
-  }
-
   reader.Read(this.globalbuf[:8])
-  entry.LongValue = int64(order.Uint64(this.globalbuf[:8]))
+  entry.LongValue = int64(this.byteOrder.Uint64(this.globalbuf[:8]))
 
   return nil
 }
 
-func (this *HSPerfData) ReadPerfEntry(f *os.File) ([]PerfDataEntry, error){
+func (this *HSPerfData) ReadAllEntry(f *os.File) ([]PerfDataEntry, error){
   fileinfo, err := f.Stat()
   if err != nil {
       return nil, err
@@ -186,13 +183,7 @@ func (this *HSPerfData) ReadPerfEntry(f *os.File) ([]PerfDataEntry, error){
   f.Read(buf)
 
   var result []PerfDataEntry = make([]PerfDataEntry, this.Prologue.NumEntries)
-
-  var order binary.ByteOrder
-  if this.Prologue.ByteOrder == 0 {
-    order = binary.BigEndian
-  } else {
-    order = binary.LittleEndian
-  }
+  this.entryCache = make([]PerfDataEntry, 0, this.Prologue.NumEntries)
 
   reader := bytes.NewReader(buf)
   for i := 0; i < int(this.Prologue.NumEntries); i++ {
@@ -202,11 +193,11 @@ func (this *HSPerfData) ReadPerfEntry(f *os.File) ([]PerfDataEntry, error){
     }
 
     reader.Read(this.globalbuf[:4])
-    result[i].EntryLength = int32(order.Uint32(this.globalbuf[:4]))
+    result[i].EntryLength = int32(this.byteOrder.Uint32(this.globalbuf[:4]))
     reader.Read(this.globalbuf[:4])
-    result[i].NameOffset = int32(order.Uint32(this.globalbuf[:4]))
+    result[i].NameOffset = int32(this.byteOrder.Uint32(this.globalbuf[:4]))
     reader.Read(this.globalbuf[:4])
-    result[i].VectorLength = int32(order.Uint32(this.globalbuf[:4]))
+    result[i].VectorLength = int32(this.byteOrder.Uint32(this.globalbuf[:4]))
 
     reader.Read(this.globalbuf[:4])
     result[i].DataType = int8(this.globalbuf[0])
@@ -215,35 +206,78 @@ func (this *HSPerfData) ReadPerfEntry(f *os.File) ([]PerfDataEntry, error){
     result[i].DataVariability = int8(this.globalbuf[3])
 
     reader.Read(this.globalbuf[:4])
-    result[i].DataOffset = int32(order.Uint32(this.globalbuf[:4]))
+    result[i].DataOffset = int32(this.byteOrder.Uint32(this.globalbuf[:4]))
 
-    if !this.called || result[i].DataVariability != 1 { // 1st call or NOT constants
-      err = this.readEntryName(reader, StartOfs, &result[i])
+    err = this.readEntryName(reader, StartOfs, &result[i])
+    if err != nil {
+      return nil, err
+    }
+
+    if result[i].DataType == 'B' {
+      err := this.readEntryValueAsString(reader, StartOfs, &result[i])
+
       if err != nil {
         return nil, err
       }
 
-      if result[i].DataType == 'B' {
-        err := this.readEntryValueAsString(reader, StartOfs, &result[i])
+    } else if result[i].DataType == 'J' {
+      err := this.readEntryValueAsLong(reader, StartOfs, &result[i])
 
-        if err != nil {
-          return nil, err
-        }
-
-      } else if result[i].DataType == 'J' {
-        err := this.readEntryValueAsLong(reader, StartOfs, &result[i])
-
-        if err != nil {
-          return nil, err
-        }
-
+      if err != nil {
+        return nil, err
       }
+
+    }
+
+    if result[i].DataVariability != 1 {  // Modifiable value
+      this.entryCache = append(this.entryCache, result[i])
     }
 
     reader.Seek(StartOfs + int64(result[i].EntryLength), os.SEEK_SET)
   }
 
-  this.called = true
+  return result, nil
+}
+
+func (this *HSPerfData) ReadCachedEntry(f *os.File) ([]PerfDataEntry, error){
+  fileinfo, err := f.Stat()
+  if err != nil {
+      return nil, err
+  }
+
+  var buf []byte = make([]byte, fileinfo.Size() - 32)
+  f.Read(buf)
+
+  var result []PerfDataEntry = make([]PerfDataEntry, len(this.entryCache))
+
+  reader := bytes.NewReader(buf)
+  for i, entry := range this.entryCache {
+    StartOfs, err := reader.Seek(0, os.SEEK_CUR)
+    if err != nil {
+      return nil, err
+    }
+
+    result[i] = entry
+
+    if result[i].DataType == 'B' {
+      err := this.readEntryValueAsString(reader, StartOfs, &result[i])
+
+      if err != nil {
+        return nil, err
+      }
+
+    } else if result[i].DataType == 'J' {
+      err := this.readEntryValueAsLong(reader, StartOfs, &result[i])
+
+      if err != nil {
+        return nil, err
+      }
+
+    }
+
+    reader.Seek(StartOfs + int64(result[i].EntryLength), os.SEEK_SET)
+  }
+
   return result, nil
 }
 
