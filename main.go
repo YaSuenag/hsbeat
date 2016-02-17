@@ -48,7 +48,7 @@ func main() {
 */
 
   hb :=&hsbeat.HSBeat{os.Args[1], time.Duration(interval), "",
-                                                       false, nil, nil}
+                                                       false, nil, nil, nil}
   b := beat.NewBeat("hsbeat", "0.1.0", hb)
   b.CommandLineSetup()
   b.LoadConfig()

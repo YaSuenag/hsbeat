@@ -36,6 +36,7 @@ type HSBeat struct {
   ShouldTerminate bool
   PreviousData map[string]int64
   PerfData *hsperfdata.HSPerfData
+  CachedEvent common.MapStr
 }
 
 
@@ -53,10 +54,14 @@ func (this *HSBeat) Setup(b *beat.Beat) error {
 }
 
 func (this *HSBeat) publish(b *beat.Beat, entries []hsperfdata.PerfDataEntry) error {
-  timestamp :=  common.Time(time.Now())
-  event := common.MapStr{"@timestamp": timestamp,
-                         "type": "hsbeat",
-                         "pid": this.Pid}
+  var event common.MapStr
+  if this.CachedEvent == nil {
+    event = common.MapStr{"type": "hsbeat", "pid": this.Pid}
+  } else {
+    event = this.CachedEvent
+  }
+
+  event["@timestamp"] = common.Time(time.Now())
 
   for _, entry := range entries {
     if entry.DataType == 'J' {
@@ -79,6 +84,8 @@ func (this *HSBeat) publish(b *beat.Beat, entries []hsperfdata.PerfDataEntry) er
 }
 
 func (this *HSBeat) publishAll(b *beat.Beat) error {
+  this.CachedEvent = nil
+
   f, err := os.Open(this.HSPerfDataPath)
   if err != nil {
     return err
@@ -105,6 +112,8 @@ func (this *HSBeat) publishAll(b *beat.Beat) error {
 }
 
 func (this *HSBeat) publishCached(b *beat.Beat) error {
+  this.CachedEvent = common.MapStr{"type": "hsbeat", "pid": this.Pid}
+
   f, err := os.Open(this.HSPerfDataPath)
   if err != nil {
     return err
