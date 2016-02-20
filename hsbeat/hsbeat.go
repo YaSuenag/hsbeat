@@ -136,6 +136,10 @@ func (this *HSBeat) publishCached(b *beat.Beat) error {
 }
 
 func (this *HSBeat) Run(b *beat.Beat) error {
+  if b.Events == nil {
+    panic("Beat.Events is nil")
+  }
+
   ticker := time.NewTicker(this.Interval)
   defer ticker.Stop()
 

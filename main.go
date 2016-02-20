@@ -57,9 +57,9 @@ func main() {
   hb.Pid = os.Args[1]
   hb.Interval = time.Duration(interval) * time.Millisecond
 
-  b := beat.NewBeat("hsbeat", "0.1.0", hb)
-  b.CommandLineSetup()
-  b.LoadConfig()
-  b.Run()
+  if err := beat.Run("hsbeat", "0.1.0", hb); err != nil {
+    os.Exit(1)
+  }
+
 }
 
