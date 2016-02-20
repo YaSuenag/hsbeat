@@ -32,11 +32,11 @@ import(
 type HSBeat struct {
   Pid string
   Interval time.Duration
-  HSPerfDataPath string
-  ShouldTerminate bool
-  PreviousData map[string]int64
-  PerfData *hsperfdata.HSPerfData
-  CachedEvent common.MapStr
+  hsPerfDataPath string
+  shouldTerminate bool
+  previousData map[string]int64
+  perfData *hsperfdata.HSPerfData
+  cachedEvent common.MapStr
 }
 
 
@@ -47,18 +47,18 @@ func (this *HSBeat) Config(b *beat.Beat) error {
 func (this *HSBeat) Setup(b *beat.Beat) error {
   var err error
 
-  this.PreviousData = make(map[string]int64)
-  this.HSPerfDataPath, err = hsperfdata.GetHSPerfDataPath(this.Pid)
-  this.PerfData = &hsperfdata.HSPerfData{}
+  this.previousData = make(map[string]int64)
+  this.hsPerfDataPath, err = hsperfdata.GetHSPerfDataPath(this.Pid)
+  this.perfData = &hsperfdata.HSPerfData{}
   return err
 }
 
 func (this *HSBeat) publish(b *beat.Beat, entries []hsperfdata.PerfDataEntry) error {
   var event common.MapStr
-  if this.CachedEvent == nil {
+  if this.cachedEvent == nil {
     event = common.MapStr{"type": "hsbeat", "pid": this.Pid}
   } else {
-    event = this.CachedEvent
+    event = this.cachedEvent
   }
 
   event["@timestamp"] = common.Time(time.Now())
@@ -66,13 +66,13 @@ func (this *HSBeat) publish(b *beat.Beat, entries []hsperfdata.PerfDataEntry) er
   for _, entry := range entries {
     if entry.DataType == 'J' {
       event[entry.EntryName] = entry.LongValue
-      prev, exists := this.PreviousData[entry.EntryName]
+      prev, exists := this.previousData[entry.EntryName]
 
       if exists {
         event[entry.EntryName + ",diff"] = entry.LongValue - prev
       }
 
-      this.PreviousData[entry.EntryName] = entry.LongValue
+      this.previousData[entry.EntryName] = entry.LongValue
     } else {
       event[entry.EntryName] = entry.StringValue
     }
@@ -84,21 +84,21 @@ func (this *HSBeat) publish(b *beat.Beat, entries []hsperfdata.PerfDataEntry) er
 }
 
 func (this *HSBeat) publishAll(b *beat.Beat) error {
-  this.CachedEvent = nil
+  this.cachedEvent = nil
 
-  f, err := os.Open(this.HSPerfDataPath)
+  f, err := os.Open(this.hsPerfDataPath)
   if err != nil {
     return err
   }
   defer f.Close()
 
-  err = this.PerfData.ReadPrologue(f)
+  err = this.perfData.ReadPrologue(f)
   if err != nil {
     return err
   }
 
-  f.Seek(int64(this.PerfData.Prologue.EntryOffset), os.SEEK_SET)
-  result, err := this.PerfData.ReadAllEntry(f)
+  f.Seek(int64(this.perfData.Prologue.EntryOffset), os.SEEK_SET)
+  result, err := this.perfData.ReadAllEntry(f)
   if err != nil {
     return err
   }
@@ -112,16 +112,16 @@ func (this *HSBeat) publishAll(b *beat.Beat) error {
 }
 
 func (this *HSBeat) publishCached(b *beat.Beat) error {
-  this.CachedEvent = common.MapStr{"type": "hsbeat", "pid": this.Pid}
+  this.cachedEvent = common.MapStr{"type": "hsbeat", "pid": this.Pid}
 
-  f, err := os.Open(this.HSPerfDataPath)
+  f, err := os.Open(this.hsPerfDataPath)
   if err != nil {
     return err
   }
   defer f.Close()
 
-  f.Seek(int64(this.PerfData.Prologue.EntryOffset), os.SEEK_SET)
-  result, err := this.PerfData.ReadCachedEntry(f)
+  f.Seek(int64(this.perfData.Prologue.EntryOffset), os.SEEK_SET)
+  result, err := this.perfData.ReadCachedEntry(f)
   if err != nil {
     return err
   }
@@ -140,7 +140,7 @@ func (this *HSBeat) Run(b *beat.Beat) error {
     return err
   }
 
-  for !this.ShouldTerminate {
+  for !this.shouldTerminate {
     time.Sleep(this.Interval)
 
     err := this.publishCached(b)
@@ -158,6 +158,6 @@ func (this *HSBeat) Cleanup(b *beat.Beat) error {
 }
 
 func (this *HSBeat) Stop() {
-  this.ShouldTerminate = true
+  this.shouldTerminate = true
 }
 
