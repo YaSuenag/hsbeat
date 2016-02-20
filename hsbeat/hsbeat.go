@@ -22,8 +22,8 @@ import(
   "os"
   "time"
 
-  "github.com/elastic/libbeat/beat"
-  "github.com/elastic/libbeat/common"
+  "github.com/elastic/beats/libbeat/beat"
+  "github.com/elastic/beats/libbeat/common"
 
   "github.com/YaSuenag/hsbeat/hsperfdata"
 )

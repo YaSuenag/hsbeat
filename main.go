@@ -24,7 +24,7 @@ import (
   "strconv"
   "time"
 
-  "github.com/elastic/libbeat/beat"
+  "github.com/elastic/beats/libbeat/beat"
 
   hsbeat "github.com/YaSuenag/hsbeat/hsbeat"
 
