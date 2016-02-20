@@ -39,12 +39,18 @@ func main() {
   }
 
 /*
-  prof, err := os.Create("hsbeat.prof")
+  prof, err := os.Create("hsbeat.pprof")
   if err != nil {
     log.Fatal(err)
   }
   pprof.StartCPUProfile(prof)
   defer pprof.StopCPUProfile()
+
+  mprof, err := os.Create("hsbeat.mprof")
+  if err != nil {
+    log.Fatal(err)
+  }
+  defer pprof.WriteHeapProfile(mprof)
 */
 
   hb :=&hsbeat.HSBeat{os.Args[1], time.Duration(interval), "",
