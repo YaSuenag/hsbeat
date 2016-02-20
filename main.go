@@ -55,7 +55,7 @@ func main() {
 
   hb :=&hsbeat.HSBeat{}
   hb.Pid = os.Args[1]
-  hb.Interval = time.Duration(interval)
+  hb.Interval = time.Duration(interval) * time.Millisecond
 
   b := beat.NewBeat("hsbeat", "0.1.0", hb)
   b.CommandLineSetup()

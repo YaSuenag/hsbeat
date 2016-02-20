@@ -33,10 +33,10 @@ type HSBeat struct {
   Pid string
   Interval time.Duration
   hsPerfDataPath string
-  shouldTerminate bool
   previousData map[string]int64
   perfData *hsperfdata.HSPerfData
   cachedEvent common.MapStr
+  ch chan struct{}
 }
 
 
@@ -50,6 +50,7 @@ func (this *HSBeat) Setup(b *beat.Beat) error {
   this.previousData = make(map[string]int64)
   this.hsPerfDataPath, err = hsperfdata.GetHSPerfDataPath(this.Pid)
   this.perfData = &hsperfdata.HSPerfData{}
+  this.ch = make(chan struct{})
   return err
 }
 
@@ -135,13 +136,21 @@ func (this *HSBeat) publishCached(b *beat.Beat) error {
 }
 
 func (this *HSBeat) Run(b *beat.Beat) error {
+  ticker := time.NewTicker(this.Interval)
+  defer ticker.Stop()
+
   err := this.publishAll(b)
   if err != nil {
     return err
   }
 
-  for !this.shouldTerminate {
-    time.Sleep(this.Interval)
+  for {
+
+    select {
+      case <- this.ch:
+        return nil
+      case <- ticker.C:
+    }
 
     err := this.publishCached(b)
     if err != nil {
@@ -158,6 +167,6 @@ func (this *HSBeat) Cleanup(b *beat.Beat) error {
 }
 
 func (this *HSBeat) Stop() {
-  this.shouldTerminate = true
+  close(this.ch)
 }
 
