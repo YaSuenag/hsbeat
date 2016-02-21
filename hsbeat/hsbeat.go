@@ -70,7 +70,7 @@ func (this *HSBeat) publish(b *beat.Beat, entries []hsperfdata.PerfDataEntry) er
       prev, exists := this.previousData[entry.EntryName]
 
       if exists {
-        event[entry.EntryName + ",diff"] = entry.LongValue - prev
+        event[entry.EntryName + "/diff"] = entry.LongValue - prev
       }
 
       this.previousData[entry.EntryName] = entry.LongValue
