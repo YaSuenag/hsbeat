@@ -53,6 +53,8 @@ type PerfDataEntry struct{
   EntryName string
   StringValue string
   LongValue int64
+
+  FileOffset int64
 }
 
 type HSPerfData struct {
@@ -191,6 +193,7 @@ func (this *HSPerfData) ReadAllEntry(f *os.File) ([]PerfDataEntry, error){
     if err != nil {
       return nil, err
     }
+    result[i].FileOffset = StartOfs
 
     reader.Read(this.globalbuf[:4])
     result[i].EntryLength = int32(this.byteOrder.Uint32(this.globalbuf[:4]))
@@ -252,22 +255,20 @@ func (this *HSPerfData) ReadCachedEntry(f *os.File) ([]PerfDataEntry, error){
 
   reader := bytes.NewReader(buf)
   for i, entry := range this.entryCache {
-    StartOfs, err := reader.Seek(0, os.SEEK_CUR)
-    if err != nil {
-      return nil, err
-    }
+    reader.Seek(entry.FileOffset, os.SEEK_CUR)
 
     result[i] = entry
 
     if result[i].DataType == 'B' {
-      err := this.readEntryValueAsString(reader, StartOfs, &result[i])
+      err := this.readEntryValueAsString(reader,
+                                            result[i].FileOffset, &result[i])
 
       if err != nil {
         return nil, err
       }
 
     } else if result[i].DataType == 'J' {
-      err := this.readEntryValueAsLong(reader, StartOfs, &result[i])
+      err := this.readEntryValueAsLong(reader, result[i].FileOffset, &result[i])
 
       if err != nil {
         return nil, err
@@ -275,7 +276,6 @@ func (this *HSPerfData) ReadCachedEntry(f *os.File) ([]PerfDataEntry, error){
 
     }
 
-    reader.Seek(StartOfs + int64(result[i].EntryLength), os.SEEK_SET)
   }
 
   return result, nil
