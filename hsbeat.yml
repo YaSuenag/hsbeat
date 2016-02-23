@@ -1,5 +1,7 @@
-# THIS FILE IS IMPORTED FROM LIBBEAT.YML IN LIBBEAT
-# https://raw.githubusercontent.com/elastic/libbeat/master/etc/libbeat.yml
+###############################################################################
+############################## HSBeat Config ##################################
+force_collect:
+  - "sun/os/hrt/frequency"
 
 ###############################################################################
 ############################# Libbeat Config ##################################

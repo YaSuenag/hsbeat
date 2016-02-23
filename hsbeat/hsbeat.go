@@ -23,8 +23,10 @@ import(
   "time"
 
   "github.com/elastic/beats/libbeat/beat"
+  "github.com/elastic/beats/libbeat/cfgfile"
   "github.com/elastic/beats/libbeat/common"
 
+  "github.com/YaSuenag/hsbeat/config"
   "github.com/YaSuenag/hsbeat/hsperfdata"
 )
 
@@ -37,10 +39,17 @@ type HSBeat struct {
   perfData *hsperfdata.HSPerfData
   cachedEvent common.MapStr
   ch chan struct{}
+  hsBeatConfig *config.HSBeatConfig
 }
 
 
 func (this *HSBeat) Config(b *beat.Beat) error {
+  this.hsBeatConfig = &config.HSBeatConfig{}
+  err := cfgfile.Read(&this.hsBeatConfig, "")
+  if err != nil {
+    return nil
+  }
+
   return nil
 }
 
@@ -51,6 +60,12 @@ func (this *HSBeat) Setup(b *beat.Beat) error {
   this.hsPerfDataPath, err = hsperfdata.GetHSPerfDataPath(this.Pid)
   this.perfData = &hsperfdata.HSPerfData{}
   this.ch = make(chan struct{})
+
+  this.perfData.ForceCachedEntryName = make(map[string]int)
+  for _, entry := range this.hsBeatConfig.ForceCollect {
+    this.perfData.ForceCachedEntryName[entry] = 1
+  }
+
   return err
 }
 
