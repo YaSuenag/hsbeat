@@ -64,6 +64,7 @@ type HSPerfData struct {
   entryCache []PerfDataEntry
 }
 
+var constCachedEntryName map[string]int = map[string]int{ "sun/os/hrt/frequency": 1 }
 
 func GetHSPerfDataPath(pid string) (string, error) {
   user, err := user.Current()
@@ -234,6 +235,13 @@ func (this *HSPerfData) ReadAllEntry(f *os.File) ([]PerfDataEntry, error){
 
     if result[i].DataVariability != 1 {  // Modifiable value
       this.entryCache = append(this.entryCache, result[i])
+    } else {
+      _, exists := constCachedEntryName[result[i].EntryName]
+
+      if exists {
+        this.entryCache = append(this.entryCache, result[i])
+      }
+
     }
 
     reader.Seek(StartOfs + int64(result[i].EntryLength), os.SEEK_SET)
