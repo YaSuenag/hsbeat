@@ -24,28 +24,12 @@ import (
   "github.com/elastic/beats/libbeat/beat"
 
   hsbeat "github.com/YaSuenag/hsbeat/hsbeat"
-
-  //"runtime/pprof"
 )
 
 
 func main() {
-/*
-  prof, err := os.Create("hsbeat.pprof")
-  if err != nil {
-    log.Fatal(err)
-  }
-  pprof.StartCPUProfile(prof)
-  defer pprof.StopCPUProfile()
-
-  mprof, err := os.Create("hsbeat.mprof")
-  if err != nil {
-    log.Fatal(err)
-  }
-  defer pprof.WriteHeapProfile(mprof)
-*/
-
   hb :=hsbeat.New()
+
   if err := beat.Run("hsbeat", "0.1.0", hb); err != nil {
     os.Exit(1)
   }
