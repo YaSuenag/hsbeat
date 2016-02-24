@@ -16,8 +16,12 @@ Run ```hsbeat``` with same user of target VM.
 ```shell
 $ go get github.com/YaSuenag/hsbeat
 $ curl -XPUT http://<host>:9200/_template/hsbeat -d@etc/hsbeat-template.json
-$ hsbeat <PID> <Interval (in ms)>
+$ hsbeat -p <PID> -i <Interval (in ms)>
 ```
+
+Note:
+* -p is mandatory, -i is optional (5000 is by default).
+* You can see all options with -h.
 
 If you want to use (import) Kibana dashboard sample (etc/kibana.json), you have to enable Elasticsearch dynamic scripting in ```$ES_HOME/config/elasticsearch.yml``` as below:
 

@@ -20,9 +20,6 @@ package main
 
 import (
   "os"
-  "log"
-  "strconv"
-  "time"
 
   "github.com/elastic/beats/libbeat/beat"
 
@@ -33,11 +30,6 @@ import (
 
 
 func main() {
-  interval, err := strconv.Atoi(os.Args[2])
-  if err != nil {
-    log.Fatal(err)
-  }
-
 /*
   prof, err := os.Create("hsbeat.pprof")
   if err != nil {
@@ -53,10 +45,7 @@ func main() {
   defer pprof.WriteHeapProfile(mprof)
 */
 
-  hb :=&hsbeat.HSBeat{}
-  hb.Pid = os.Args[1]
-  hb.Interval = time.Duration(interval) * time.Millisecond
-
+  hb :=hsbeat.New()
   if err := beat.Run("hsbeat", "0.1.0", hb); err != nil {
     os.Exit(1)
   }

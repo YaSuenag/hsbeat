@@ -20,7 +20,9 @@ package hsbeat
 
 import(
   "os"
+  "flag"
   "time"
+  "fmt"
 
   "github.com/elastic/beats/libbeat/beat"
   "github.com/elastic/beats/libbeat/cfgfile"
@@ -31,17 +33,38 @@ import(
 )
 
 
+type CmdLineArgs struct {
+  Pid *string
+  Interval *int
+}
+
+var cmdLineArgs CmdLineArgs
+
 type HSBeat struct {
-  Pid string
-  Interval time.Duration
+  interval time.Duration
   hsPerfDataPath string
   previousData map[string]int64
   perfData *hsperfdata.HSPerfData
   cachedEvent common.MapStr
   ch chan struct{}
   hsBeatConfig *config.HSBeatConfig
+  cmdLineArgs CmdLineArgs
 }
 
+
+func init() {
+  cmdLineArgs = CmdLineArgs{
+                  Pid: flag.String("p", "", "PID to attach"),
+                  Interval: flag.Int("i", 5000, "Collection interval in ms"),
+                }
+}
+
+func New() *HSBeat {
+  hb := &HSBeat{}
+  hb.cmdLineArgs = cmdLineArgs
+
+  return hb
+}
 
 func (this *HSBeat) Config(b *beat.Beat) error {
   this.hsBeatConfig = &config.HSBeatConfig{}
@@ -53,11 +76,21 @@ func (this *HSBeat) Config(b *beat.Beat) error {
   return nil
 }
 
+func (this *HSBeat) HandleFlags(b *beat.Beat) {
+
+  if *this.cmdLineArgs.Pid == "" {
+    fmt.Fprintf(os.Stderr, "You have to set target PID with -p.\n")
+    os.Exit(-1)
+  }
+
+  this.interval = time.Duration(*this.cmdLineArgs.Interval) * time.Millisecond
+}
+
 func (this *HSBeat) Setup(b *beat.Beat) error {
   var err error
 
   this.previousData = make(map[string]int64)
-  this.hsPerfDataPath, err = hsperfdata.GetHSPerfDataPath(this.Pid)
+  this.hsPerfDataPath, err = hsperfdata.GetHSPerfDataPath(*this.cmdLineArgs.Pid)
   this.perfData = &hsperfdata.HSPerfData{}
   this.ch = make(chan struct{})
 
@@ -72,7 +105,7 @@ func (this *HSBeat) Setup(b *beat.Beat) error {
 func (this *HSBeat) publish(b *beat.Beat, entries []hsperfdata.PerfDataEntry) error {
   var event common.MapStr
   if this.cachedEvent == nil {
-    event = common.MapStr{"type": "hsbeat", "pid": this.Pid}
+    event = common.MapStr{"type": "hsbeat", "pid": *this.cmdLineArgs.Pid}
   } else {
     event = this.cachedEvent
   }
@@ -128,7 +161,8 @@ func (this *HSBeat) publishAll(b *beat.Beat) error {
 }
 
 func (this *HSBeat) publishCached(b *beat.Beat) error {
-  this.cachedEvent = common.MapStr{"type": "hsbeat", "pid": this.Pid}
+  this.cachedEvent = common.MapStr{"type": "hsbeat",
+                                   "pid": *this.cmdLineArgs.Pid}
 
   f, err := os.Open(this.hsPerfDataPath)
   if err != nil {
@@ -155,7 +189,7 @@ func (this *HSBeat) Run(b *beat.Beat) error {
     panic("Beat.Events is nil")
   }
 
-  ticker := time.NewTicker(this.Interval)
+  ticker := time.NewTicker(this.interval)
   defer ticker.Stop()
 
   err := this.publishAll(b)
