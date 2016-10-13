@@ -1,0 +1,7 @@
+- module: hotspot
+  metricsets: ["hsperfdata"]
+  enabled: true
+  period: 1s
+  hosts: ["localhost"]
+  force_collect: ["sun/os/hrt/frequency"]
+

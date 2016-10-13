@@ -1,0 +1,9 @@
+- key: hotspot
+  title: "hotspot"
+  description: >
+    hotspot Module
+  fields:
+    - name: hotspot
+      type: group
+      description: >
+      fields:

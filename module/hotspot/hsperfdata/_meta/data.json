@@ -1,0 +1,26 @@
+{
+    "@timestamp":"2016-05-23T08:05:34.853Z",
+    "beat":{
+        "hostname":"beathost",
+        "name":"beathost"
+    },
+    "metricset":{
+        "host":"localhost",
+        "module":"mysql",
+        "name":"status",
+        "rtt":44269
+    },
+    "hotspot":{
+        "hsperfdata":{
+            "properties": {
+                "type": {
+                    "type": "keyword"
+                }
+            },
+            "pid": {
+                "type": "integer"
+            }
+        }
+    },
+    "type":"metricsets"
+}

@@ -1,1 +1,7 @@
-hsbeatmain
+# Directories
+build
+logs
+data
+
+# Binary
+hsbeat

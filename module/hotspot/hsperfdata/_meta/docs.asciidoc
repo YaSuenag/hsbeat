@@ -1,0 +1,3 @@
+=== hotspot hsperfdata MetricSet
+
+This is the hsperfdata metricset of the module hotspot.

@@ -1,0 +1,38 @@
+////
+This file is generated! See scripts/docs_collector.py
+////
+
+[[metricbeat-module-hotspot]]
+== hotspot Module
+
+This is the hotspot Module.
+
+
+
+[float]
+=== Example Configuration
+
+The hotspot module supports the standard configuration options that are described
+in <<configuration-metricbeat>>.
+
+[source,yaml]
+----
+hsbeat.modules:
+- module: hotspot
+  metricsets: ["hsperfdata"]
+  enabled: true
+  period: 1s
+  hosts: ["localhost"]
+  force_collect: ["sun/os/hrt/frequency"]
+
+----
+
+[float]
+=== Metricsets
+
+The following metricsets are available:
+
+* <<metricbeat-metricset-hotspot-hsperfdata,hsperfdata>>
+
+include::hotspot/hsperfdata.asciidoc[]
+

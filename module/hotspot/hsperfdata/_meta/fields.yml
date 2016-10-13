@@ -1,0 +1,9 @@
+- name: hsperfdata
+  type: group
+  description: >
+    hsperfdata
+  fields:
+    - name: pid
+      type: integer
+      description: >
+        PID of target process

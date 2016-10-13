@@ -1,0 +1,21 @@
+###################### HSBeat Configuration Example #######################
+
+# This file is an example configuration file highlighting only the most common
+# options. The hsbeat.full.yml file from the same directory contains all the
+# supported options with more comments. You can use it as a reference.
+#
+# You can find the full configuration reference here:
+# https://www.elastic.co/guide/en/beats/metricbeat/index.html
+
+#==========================  Modules configuration ============================
+hsbeat.modules:
+
+#------------------------------- hotspot Module ------------------------------
+- module: hotspot
+  metricsets: ["hsperfdata"]
+  enabled: true
+  period: 1s
+  hosts: ["localhost"]
+  force_collect: ["sun/os/hrt/frequency"]
+
+
