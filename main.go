@@ -15,7 +15,7 @@ import (
 var Name = "hsbeat"
 
 func main() {
-	if err := beat.Run(Name, "", beater.New); err != nil {
+	if err := beat.Run(Name, "0.2.0", beater.New); err != nil {
 		os.Exit(1)
 	}
 }
