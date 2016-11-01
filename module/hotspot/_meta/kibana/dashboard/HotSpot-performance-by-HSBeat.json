@@ -1,0 +1,13 @@
+{
+  "hits": 0, 
+  "timeRestore": false, 
+  "description": "", 
+  "title": "HotSpot performance by HSBeat", 
+  "uiStateJSON": "{}", 
+  "panelsJSON": "[{\"id\":\"AppTime-VS-SafepointTime\",\"type\":\"visualization\",\"panelIndex\":1,\"size_x\":12,\"size_y\":3,\"col\":1,\"row\":1},{\"id\":\"Class-loading\",\"type\":\"visualization\",\"panelIndex\":2,\"size_x\":6,\"size_y\":2,\"col\":7,\"row\":6},{\"id\":\"GC-count\",\"type\":\"visualization\",\"panelIndex\":3,\"size_x\":6,\"size_y\":2,\"col\":1,\"row\":6},{\"id\":\"GC-time\",\"type\":\"visualization\",\"panelIndex\":4,\"size_x\":6,\"size_y\":2,\"col\":7,\"row\":8},{\"id\":\"JIT-compiles\",\"type\":\"visualization\",\"panelIndex\":5,\"size_x\":6,\"size_y\":2,\"col\":1,\"row\":8},{\"id\":\"Java-heap-usage\",\"type\":\"visualization\",\"panelIndex\":6,\"size_x\":12,\"size_y\":3,\"col\":1,\"row\":12},{\"id\":\"Live-threads\",\"type\":\"visualization\",\"panelIndex\":7,\"size_x\":6,\"size_y\":2,\"col\":1,\"row\":4},{\"id\":\"Metaspace\",\"type\":\"visualization\",\"panelIndex\":8,\"size_x\":12,\"size_y\":2,\"col\":1,\"row\":10},{\"id\":\"Parks\",\"type\":\"visualization\",\"panelIndex\":9,\"size_x\":6,\"size_y\":2,\"col\":7,\"row\":4}]", 
+  "optionsJSON": "{\"darkTheme\":false}", 
+  "version": 1, 
+  "kibanaSavedObjectMeta": {
+    "searchSourceJSON": "{\"filter\":[{\"query\":{\"query_string\":{\"query\":\"*\",\"analyze_wildcard\":true}}}]}"
+  }
+}
