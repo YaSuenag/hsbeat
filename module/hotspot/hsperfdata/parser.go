@@ -20,11 +20,12 @@ package hsperfdata
 
 import(
   "os"
-  "os/user"
   "path/filepath"
   "bytes"
   "encoding/binary"
   "errors"
+
+  "github.com/elastic/beats/libbeat/logp"
 )
 
 
@@ -65,14 +66,66 @@ type HSPerfData struct {
   ForceCachedEntryName map[string]int
 }
 
-
+// returns the path to the hsperfdata file for a given pid
+// it searches in all hsperfdata user directories (using a glob mattern)
+// pids are assumed to be unique regardless of username
+// the user running hsbeat needs to have access to that path
 func GetHSPerfDataPath(pid string) (string, error) {
-  user, err := user.Current()
+  hsperfGlob := filepath.Join(os.TempDir(), "hsperfdata_*", pid)
+  logp.Debug(DEBUG_SELECTOR, "Looking for hsperfdata file for pid %v using glob pattern: %v", pid, hsperfGlob)
+
+  hsperfFiles, err := filepath.Glob(hsperfGlob)
+
   if err != nil {
     return "", err
   }
 
-  return filepath.Join(os.TempDir(), "hsperfdata_" + user.Username, pid), nil
+  if len(hsperfFiles) < 1 {
+    logp.Err("No hsperfdata file found for pid: %v", pid)
+    return "", errors.New("No hsperfdata file found for pid: " + pid)
+  }
+
+  if len(hsperfFiles) > 1 {
+    logp.Err("More than one hsperfdata file found for pid: %v, this is not normal", pid)
+    return "", errors.New("More than one hsperfdata file found for pid: " + pid + ", this is not normal")
+  }
+
+  filePath := hsperfFiles[0]
+
+  return filePath, nil
+}
+
+// get all running Java processes PIDs
+// normally there is one file per java process under hsperfdata_* directories, the filename is the pid
+// a glob pattern is used to find pids of processes regardless of the user
+// the user that runs hsbeat needs to have permisisons to see those directories
+// returns a list of pids
+func GetHSPerfPids() ([]string, error) {
+
+  hsperfGlob := filepath.Join(os.TempDir(), "hsperfdata_*", "*")
+  logp.Debug(DEBUG_SELECTOR, "Looking for java processes, getting list of files matching glob : %v", hsperfGlob)
+
+  hsperfFiles, err := filepath.Glob(hsperfGlob)
+
+  if err != nil {
+    return nil, err
+  }
+
+  pids := make([]string, 0, len(hsperfFiles))
+
+  for _, filePath := range hsperfFiles {
+    file, err := os.Stat(filePath) // make sure we can read the file
+    if err != nil {
+      logp.Warn("Could not read hsperf file: %v, skipping it", filePath, err)
+      continue
+    }
+    if !file.IsDir() { // take only files
+      logp.Debug(DEBUG_SELECTOR, "Found java process with pid: %v", file.Name())
+      pids = append(pids, file.Name()) // filename matches pid
+    }
+  }
+
+  return pids, nil
 }
 
 func (this *HSPerfData) ReadPrologue(f *os.File) error {
@@ -237,7 +290,6 @@ func (this *HSPerfData) ReadAllEntry(f *os.File) ([]PerfDataEntry, error){
       this.entryCache = append(this.entryCache, result[i])
     } else {
       _, exists := this.ForceCachedEntryName[result[i].EntryName]
-
       if exists {
         this.entryCache = append(this.entryCache, result[i])
       }
@@ -288,4 +340,3 @@ func (this *HSPerfData) ReadCachedEntry(f *os.File) ([]PerfDataEntry, error){
 
   return result, nil
 }
-
