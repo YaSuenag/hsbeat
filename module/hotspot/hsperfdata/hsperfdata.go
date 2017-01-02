@@ -6,6 +6,8 @@ import (
 	"github.com/elastic/beats/libbeat/common"
 	"github.com/elastic/beats/libbeat/logp"
 	"github.com/elastic/beats/metricbeat/mb"
+
+	"github.com/YaSuenag/hsbeat/utils/multierror"
 )
 
 const DEBUG_SELECTOR = "hsbeat"
@@ -165,6 +167,11 @@ func (p *ProcStats) buildMapStr(entries []PerfDataEntry) common.MapStr {
 func (p *ProcStats) publishAll() (common.MapStr, error) {
 	f, err := os.Open(p.hsPerfDataPath)
 	if err != nil {
+		if os.IsPermission(err) {
+			logp.Debug(DEBUG_SELECTOR, "Could not open %v due to perimissions error, if you want to collect data from all users hsbeat needs to run as root (%v)", p.hsPerfDataPath, err)
+		} else {
+			logp.Debug(DEBUG_SELECTOR, "Could not open %v (%v)", p.hsPerfDataPath, err)
+		}
 		return nil, err
 	}
 	defer f.Close()
@@ -186,6 +193,11 @@ func (p *ProcStats) publishAll() (common.MapStr, error) {
 func (p *ProcStats) publishCached() (common.MapStr, error) {
 	f, err := os.Open(p.hsPerfDataPath)
 	if err != nil {
+		if os.IsPermission(err) {
+			logp.Debug(DEBUG_SELECTOR, "Could not open %v due to perimissions error, if you want to collect data from all users hsbeat needs to run as root (%v)", p.hsPerfDataPath, err)
+		} else {
+			logp.Debug(DEBUG_SELECTOR, "Could not open %v (%v)", p.hsPerfDataPath, err)
+		}
 		return nil, err
 	}
 	defer f.Close()
@@ -202,10 +214,14 @@ func (p *ProcStats) publishCached() (common.MapStr, error) {
 // Fetch methods implements the data gathering and data conversion to the right format
 // It returns a list of events which is then forward to the output. In case of an error, a
 // descriptive error must be returned.
+// Map of java processes is updated at each fetch interval
+// Errors are accumlated and returned only if no events were collected, otherwise events are returned and errors are just logged
 func (m *MetricSet) Fetch() ([]common.MapStr, error) {
 
+	errors := new(multierror.MultiError)
+
 	if err := m.findAndAttachJavaProcs(); err != nil {
-		return nil, err
+		errors.Append(err) // accumulate errors
 	}
 
 	events := make([]common.MapStr, 0, len(m.procs))
@@ -220,9 +236,18 @@ func (m *MetricSet) Fetch() ([]common.MapStr, error) {
 		}
 
 		if err != nil {
-			return nil, err
+			errors.Append(err) // accumulate errors
+		} else {
+			events = append(events, event)
 		}
-		events = append(events, event)
 	}
+
+	if errors.HasErrors() {
+		logp.Debug(DEBUG_SELECTOR, "Could not fetch metrics for all processes. Error(s) found: %v", errors.String())
+		if len(events) == 0 {
+			return nil, errors // return error only we didn't collect any event
+		}
+	}
+
 	return events, nil
 }
